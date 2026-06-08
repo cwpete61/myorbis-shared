@@ -1,9 +1,8 @@
-# myorbis-shared
+# myorbis-shared / @myorbis/hub-client
 
-Shared packages across the MyOrbis portfolio (Voice, Reviews, Local, Hub, Storefront).
-Consumed via pnpm git dependency — no registry needed.
+Typed Account Hub client (entitlements, Business DNA, partner ledger) with cache +
+degrade-to-stale. Shared across the MyOrbis portfolio.
 
-## Packages
-- **@myorbis/hub-client** — typed client for the Account Hub (entitlements, Business DNA, partner ledger). Cache + degrade-to-stale built in.
+Consume: pnpm add "github:cwpete61/myorbis-shared"
 
-Each consumer: `pnpm add "github:cwpete61/myorbis-shared#main&path:/packages/hub-client"`
+Future shared packages (e.g. @myorbis/ui) live in their own sibling repos.
