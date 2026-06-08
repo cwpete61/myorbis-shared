@@ -25,7 +25,7 @@ const ACTIVE = new Set(['ACTIVE', 'TRIALING'])
 export function createHubClient(opts: HubClientOptions) {
   const ttl = opts.ttlMs ?? 30_000
   const f = opts.fetchImpl ?? fetch
-  const svc = opts.serviceToken ? { authorization: `Bearer ${opts.serviceToken}` } : {}
+  const svc: Record<string, string> = opts.serviceToken ? { authorization: `Bearer ${opts.serviceToken}` } : {}
   const base = opts.hubUrl.replace(/\/$/, '')
   const enc = encodeURIComponent
 
