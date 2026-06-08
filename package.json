@@ -1,0 +1,7 @@
+{
+  "name": "myorbis-shared",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Shared packages for the MyOrbis product portfolio",
+  "workspaces": ["packages/*"]
+}
