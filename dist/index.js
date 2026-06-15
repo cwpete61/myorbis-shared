@@ -9,6 +9,7 @@ export function createHubClient(opts) {
     const enc = encodeURIComponent;
     const entCache = new Map();
     const dnaCache = new Map();
+    const secretCache = new Map();
     const fresh = (c) => (c && Date.now() - c.at < ttl ? c : undefined);
     async function getEntitlements(tenantId) {
         const c = entCache.get(tenantId);
@@ -99,5 +100,69 @@ export function createHubClient(opts) {
             return null;
         }
     }
-    return { getEntitlements, hasActiveEntitlement, getEffectiveDna, isPartner, getPartnerLedger, reportCommission, getMe };
+    // ── Shared provider credentials (master API dashboard) ─────────────────────
+    /** Consumer: fetch a shared provider's key(s). Cache + degrade-to-stale. */
+    async function getProviderSecret(provider) {
+        const c = secretCache.get(provider);
+        if (fresh(c))
+            return c.v;
+        try {
+            const r = await f(`${base}/v1/providers/${enc(provider)}/secret`, { headers: svc });
+            if (!r.ok)
+                throw new Error(`hub ${r.status}`);
+            const d = (await r.json());
+            const v = d.fields ?? {};
+            secretCache.set(provider, { at: Date.now(), v });
+            return v;
+        }
+        catch (err) {
+            if (c)
+                return c.v;
+            throw err;
+        }
+    }
+    /** Admin: list providers (metadata only, never values). */
+    async function listProviders() {
+        try {
+            const r = await f(`${base}/v1/providers`, { headers: svc });
+            return r.ok ? (await r.json()) : [];
+        }
+        catch {
+            return [];
+        }
+    }
+    /** Admin: set/rotate a provider's key(s). */
+    async function setProviderCredential(provider, fields, label) {
+        try {
+            const r = await f(`${base}/v1/providers/${enc(provider)}`, {
+                method: 'PUT', headers: { ...svc, 'content-type': 'application/json' }, body: JSON.stringify({ fields, label }),
+            });
+            secretCache.delete(provider);
+            return r.ok;
+        }
+        catch {
+            return false;
+        }
+    }
+    /** Admin: mark a provider validated (server runs the test). */
+    async function validateProvider(provider) {
+        try {
+            return (await f(`${base}/v1/providers/${enc(provider)}/validate`, { method: 'POST', headers: svc })).ok;
+        }
+        catch {
+            return false;
+        }
+    }
+    /** Admin: disable a provider. */
+    async function disableProvider(provider) {
+        try {
+            secretCache.delete(provider);
+            return (await f(`${base}/v1/providers/${enc(provider)}`, { method: 'DELETE', headers: svc })).ok;
+        }
+        catch {
+            return false;
+        }
+    }
+    return { getEntitlements, hasActiveEntitlement, getEffectiveDna, isPartner, getPartnerLedger, reportCommission, getMe,
+        getProviderSecret, listProviders, setProviderCredential, validateProvider, disableProvider };
 }

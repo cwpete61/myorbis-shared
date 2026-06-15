@@ -35,6 +35,14 @@ export interface CommissionReport {
     occurredAt: string;
     paidAt?: string;
 }
+export interface ProviderMeta {
+    provider: string;
+    label: string | null;
+    status: string;
+    fieldNames: string[];
+    lastValidatedAt: string | null;
+    rotatedAt: string | null;
+}
 export interface HubClientOptions {
     hubUrl: string;
     serviceToken?: string;
@@ -49,5 +57,10 @@ export declare function createHubClient(opts: HubClientOptions): {
     getPartnerLedger: (email: string) => Promise<PartnerLedger | null>;
     reportCommission: (c: CommissionReport) => Promise<boolean>;
     getMe: <T = unknown>(accessToken: string) => Promise<T | null>;
+    getProviderSecret: (provider: string) => Promise<Record<string, string>>;
+    listProviders: () => Promise<ProviderMeta[]>;
+    setProviderCredential: (provider: string, fields: Record<string, string>, label?: string) => Promise<boolean>;
+    validateProvider: (provider: string) => Promise<boolean>;
+    disableProvider: (provider: string) => Promise<boolean>;
 };
 export type HubClient = ReturnType<typeof createHubClient>;

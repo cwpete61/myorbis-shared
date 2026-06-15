@@ -13,6 +13,10 @@ export interface CommissionReport {
   amountMinor: number; currency?: string; status: 'PENDING' | 'APPROVED' | 'PAID' | 'REVERSED'
   occurredAt: string; paidAt?: string
 }
+export interface ProviderMeta {
+  provider: string; label: string | null; status: string
+  fieldNames: string[]; lastValidatedAt: string | null; rotatedAt: string | null
+}
 export interface HubClientOptions {
   hubUrl: string
   serviceToken?: string
@@ -31,6 +35,7 @@ export function createHubClient(opts: HubClientOptions) {
 
   const entCache = new Map<string, { at: number; v: HubEntitlement[] }>()
   const dnaCache = new Map<string, { at: number; v: EffectiveDna | null }>()
+  const secretCache = new Map<string, { at: number; v: Record<string, string> }>()
   const fresh = <T>(c: { at: number; v: T } | undefined) => (c && Date.now() - c.at < ttl ? c : undefined)
 
   async function getEntitlements(tenantId: string): Promise<HubEntitlement[]> {
@@ -90,7 +95,41 @@ export function createHubClient(opts: HubClientOptions) {
     } catch { return null }
   }
 
-  return { getEntitlements, hasActiveEntitlement, getEffectiveDna, isPartner, getPartnerLedger, reportCommission, getMe }
+  // ── Shared provider credentials (master API dashboard) ─────────────────────
+  /** Consumer: fetch a shared provider's key(s). Cache + degrade-to-stale. */
+  async function getProviderSecret(provider: string): Promise<Record<string, string>> {
+    const c = secretCache.get(provider); if (fresh(c)) return c!.v
+    try {
+      const r = await f(`${base}/v1/providers/${enc(provider)}/secret`, { headers: svc })
+      if (!r.ok) throw new Error(`hub ${r.status}`)
+      const d = (await r.json()) as { fields?: Record<string, string> }
+      const v = d.fields ?? {}; secretCache.set(provider, { at: Date.now(), v }); return v
+    } catch (err) { if (c) return c.v; throw err }
+  }
+  /** Admin: list providers (metadata only, never values). */
+  async function listProviders(): Promise<ProviderMeta[]> {
+    try { const r = await f(`${base}/v1/providers`, { headers: svc }); return r.ok ? ((await r.json()) as ProviderMeta[]) : [] } catch { return [] }
+  }
+  /** Admin: set/rotate a provider's key(s). */
+  async function setProviderCredential(provider: string, fields: Record<string, string>, label?: string): Promise<boolean> {
+    try {
+      const r = await f(`${base}/v1/providers/${enc(provider)}`, {
+        method: 'PUT', headers: { ...svc, 'content-type': 'application/json' }, body: JSON.stringify({ fields, label }),
+      })
+      secretCache.delete(provider); return r.ok
+    } catch { return false }
+  }
+  /** Admin: mark a provider validated (server runs the test). */
+  async function validateProvider(provider: string): Promise<boolean> {
+    try { return (await f(`${base}/v1/providers/${enc(provider)}/validate`, { method: 'POST', headers: svc })).ok } catch { return false }
+  }
+  /** Admin: disable a provider. */
+  async function disableProvider(provider: string): Promise<boolean> {
+    try { secretCache.delete(provider); return (await f(`${base}/v1/providers/${enc(provider)}`, { method: 'DELETE', headers: svc })).ok } catch { return false }
+  }
+
+  return { getEntitlements, hasActiveEntitlement, getEffectiveDna, isPartner, getPartnerLedger, reportCommission, getMe,
+    getProviderSecret, listProviders, setProviderCredential, validateProvider, disableProvider }
 }
 
 export type HubClient = ReturnType<typeof createHubClient>
