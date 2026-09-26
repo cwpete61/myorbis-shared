@@ -48,6 +48,12 @@ export interface HubClientOptions {
     serviceToken?: string;
     ttlMs?: number;
     fetchImpl?: typeof fetch;
+    /**
+     * Names the calling app in the Hub's audit log. Without it every fetch is
+     * recorded as the generic service actor, so a credential read cannot be
+     * traced back to which product made it.
+     */
+    consumer?: string;
 }
 export declare function createHubClient(opts: HubClientOptions): {
     getEntitlements: (tenantId: string) => Promise<HubEntitlement[]>;

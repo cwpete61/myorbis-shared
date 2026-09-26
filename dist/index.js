@@ -4,7 +4,10 @@ const ACTIVE = new Set(['ACTIVE', 'TRIALING']);
 export function createHubClient(opts) {
     const ttl = opts.ttlMs ?? 30_000;
     const f = opts.fetchImpl ?? fetch;
-    const svc = opts.serviceToken ? { authorization: `Bearer ${opts.serviceToken}` } : {};
+    const svc = {
+        ...(opts.serviceToken ? { authorization: `Bearer ${opts.serviceToken}` } : {}),
+        ...(opts.consumer ? { 'x-consumer': opts.consumer } : {}),
+    };
     const base = opts.hubUrl.replace(/\/$/, '');
     const enc = encodeURIComponent;
     const entCache = new Map();

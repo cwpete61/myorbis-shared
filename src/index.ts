@@ -22,6 +22,12 @@ export interface HubClientOptions {
   serviceToken?: string
   ttlMs?: number
   fetchImpl?: typeof fetch
+  /**
+   * Names the calling app in the Hub's audit log. Without it every fetch is
+   * recorded as the generic service actor, so a credential read cannot be
+   * traced back to which product made it.
+   */
+  consumer?: string
 }
 
 const ACTIVE = new Set(['ACTIVE', 'TRIALING'])
@@ -29,7 +35,10 @@ const ACTIVE = new Set(['ACTIVE', 'TRIALING'])
 export function createHubClient(opts: HubClientOptions) {
   const ttl = opts.ttlMs ?? 30_000
   const f = opts.fetchImpl ?? fetch
-  const svc: Record<string, string> = opts.serviceToken ? { authorization: `Bearer ${opts.serviceToken}` } : {}
+  const svc: Record<string, string> = {
+    ...(opts.serviceToken ? { authorization: `Bearer ${opts.serviceToken}` } : {}),
+    ...(opts.consumer ? { 'x-consumer': opts.consumer } : {}),
+  }
   const base = opts.hubUrl.replace(/\/$/, '')
   const enc = encodeURIComponent
 
